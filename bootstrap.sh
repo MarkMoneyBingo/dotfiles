@@ -6,13 +6,19 @@
 # Usage:
 #   curl -sL https://raw.githubusercontent.com/YOUR_REPO/bootstrap.sh | bash
 #   OR
-#   scp bootstrap.sh ubuntu@your-host:~ && ssh ubuntu@your-host "bash bootstrap.sh"
+#   scp bootstrap.sh user@your-host:~ && ssh user@your-host "bash bootstrap.sh"
 # =============================================================================
 
 set -e
 
+# Detect current user (works even when piped via curl)
+CURRENT_USER="${SUDO_USER:-$(whoami)}"
+CURRENT_HOME=$(eval echo "~$CURRENT_USER")
+
 echo "============================================"
 echo "  Instance Bootstrap - Starting Setup"
+echo "  User: $CURRENT_USER"
+echo "  Home: $CURRENT_HOME"
 echo "============================================"
 
 # -------------------------------------------
@@ -37,7 +43,9 @@ sudo apt install -y \
     tmux \
     rsync \
     build-essential \
-    software-properties-common
+    software-properties-common \
+    dconf-cli \
+    uuid-runtime
 
 # -------------------------------------------
 # 3. GitHub CLI (gh)
@@ -62,14 +70,14 @@ sudo systemctl enable fail2ban
 sudo systemctl start fail2ban
 
 # -------------------------------------------
-# 4. Security - unattended upgrades
+# 5. Security - unattended upgrades
 # -------------------------------------------
 echo "[5/14] Setting up unattended security upgrades..."
 sudo apt install -y unattended-upgrades
 sudo dpkg-reconfigure -plow unattended-upgrades
 
 # -------------------------------------------
-# 5. AWS CLI
+# 6. AWS CLI
 # -------------------------------------------
 echo "[6/14] Installing AWS CLI..."
 if ! command -v aws &> /dev/null; then
@@ -83,35 +91,24 @@ else
 fi
 
 # -------------------------------------------
-# 6. Docker
+# 7. Docker
 # -------------------------------------------
 echo "[7/14] Installing Docker..."
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com | sudo sh
-    sudo usermod -aG docker ubuntu
+    sudo usermod -aG docker "$CURRENT_USER"
     echo "Docker installed. Log out and back in for group changes to take effect."
 else
     echo "Docker already installed, skipping."
 fi
 
 # -------------------------------------------
-# 7. Tailscale
-# -------------------------------------------
-echo "[8/14] Installing Tailscale..."
-if ! command -v tailscale &> /dev/null; then
-    curl -fsSL https://tailscale.com/install.sh | sh
-    echo "Tailscale installed. Run 'sudo tailscale up' to connect."
-else
-    echo "Tailscale already installed, skipping."
-fi
-
-# -------------------------------------------
 # 8. Node.js via nvm
 # -------------------------------------------
-echo "[9/14] Installing Node.js via nvm..."
-if [ ! -d "$HOME/.nvm" ]; then
+echo "[8/14] Installing Node.js via nvm..."
+if [ ! -d "$CURRENT_HOME/.nvm" ]; then
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-    export NVM_DIR="$HOME/.nvm"
+    export NVM_DIR="$CURRENT_HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
     nvm install --lts
     echo "Node.js LTS installed."
@@ -120,10 +117,10 @@ else
 fi
 
 # -------------------------------------------
-# 8. Python - pyenv and venv
+# 9. Python - pyenv
 # -------------------------------------------
-echo "[10/14] Installing pyenv..."
-if [ ! -d "$HOME/.pyenv" ]; then
+echo "[9/14] Installing pyenv..."
+if [ ! -d "$CURRENT_HOME/.pyenv" ]; then
     sudo apt install -y \
         libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
         libsqlite3-dev libncursesw5-dev xz-utils tk-dev \
@@ -132,7 +129,7 @@ if [ ! -d "$HOME/.pyenv" ]; then
     curl https://pyenv.run | bash
 
     # Add pyenv to current session
-    export PYENV_ROOT="$HOME/.pyenv"
+    export PYENV_ROOT="$CURRENT_HOME/.pyenv"
     export PATH="$PYENV_ROOT/bin:$PATH"
     eval "$(pyenv init -)"
 
@@ -146,31 +143,57 @@ else
 fi
 
 # -------------------------------------------
-# 9. Zsh + Oh My Zsh + Powerlevel10k
+# 10. Fonts
 # -------------------------------------------
-echo "[11/14] Installing zsh and oh-my-zsh..."
+echo "[10/14] Installing developer fonts..."
+sudo apt install -y fonts-jetbrains-mono fonts-hack fonts-firacode
+
+# -------------------------------------------
+# 11. Terminal color themes (Dracula + Monokai)
+# -------------------------------------------
+echo "[11/14] Installing terminal color themes..."
+GOGH_DIR="$CURRENT_HOME/src/gogh"
+if [ ! -d "$GOGH_DIR" ]; then
+    mkdir -p "$CURRENT_HOME/src"
+    git clone https://github.com/Gogh-Co/Gogh.git "$GOGH_DIR"
+fi
+
+# Install Dracula and Monokai Dark non-interactively
+export TERMINAL=gnome-terminal
+cd "$GOGH_DIR/installs"
+./dracula.sh
+./monokai-dark.sh
+cd "$CURRENT_HOME"
+
+echo "Dracula and Monokai Dark themes installed."
+echo "To switch: right-click terminal -> Preferences -> pick a profile."
+
+# -------------------------------------------
+# 12. Zsh + Oh My Zsh + Powerlevel10k
+# -------------------------------------------
+echo "[12/14] Installing zsh and oh-my-zsh..."
 sudo apt install -y zsh
 
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
+if [ ! -d "$CURRENT_HOME/.oh-my-zsh" ]; then
     # Install oh-my-zsh non-interactively
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
     # Install Powerlevel10k theme
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+        ${ZSH_CUSTOM:-$CURRENT_HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 
     # Install plugins
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+        ${ZSH_CUSTOM:-$CURRENT_HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 
     git clone https://github.com/zsh-users/zsh-autosuggestions \
-        ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+        ${ZSH_CUSTOM:-$CURRENT_HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
     # Configure .zshrc
     sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
     sed -i 's/plugins=(git)/plugins=(git z sudo zsh-syntax-highlighting zsh-autosuggestions)/' ~/.zshrc
 
-    # Add pyenv to .zshrc
+    # Add pyenv, nvm, and AWS config to .zshrc
     cat >> ~/.zshrc << 'EOF'
 
 # pyenv
@@ -192,12 +215,12 @@ else
 fi
 
 # Set zsh as default shell
-sudo chsh -s $(which zsh) ubuntu
+sudo chsh -s "$(which zsh)" "$CURRENT_USER"
 
 # -------------------------------------------
-# 10. Tmux config
+# 13. Tmux config
 # -------------------------------------------
-echo "[12/14] Setting up tmux config..."
+echo "[13/14] Setting up tmux config..."
 cat > ~/.tmux.conf << 'EOF'
 # Better prefix key (Ctrl+a instead of Ctrl+b)
 unbind C-b
@@ -239,9 +262,9 @@ EOF
 echo "Tmux configured."
 
 # -------------------------------------------
-# 12/13. Login welcome message
+# 14. Login welcome message
 # -------------------------------------------
-echo "[13/14] Setting up login welcome message..."
+echo "[14/14] Setting up login welcome message..."
 sudo tee /etc/update-motd.d/99-instance-info > /dev/null << 'MOTDEOF'
 #!/bin/bash
 echo ""
@@ -259,46 +282,6 @@ echo ""
 MOTDEOF
 sudo chmod +x /etc/update-motd.d/99-instance-info
 
-# -------------------------------------------
-# 13/13. Auto-stop idle script
-# -------------------------------------------
-echo "[14/14] Setting up auto-stop on idle..."
-sudo tee /opt/auto-stop.sh > /dev/null << 'EOF'
-#!/bin/bash
-# Auto-stop instance if no SSH sessions for 30 minutes
-
-IDLE_FILE="/tmp/last-active"
-
-# Check for active SSH sessions
-ACTIVE=$(who | grep -c "pts/" 2>/dev/null || echo "0")
-
-if [ "$ACTIVE" -gt 0 ]; then
-    # Someone is connected, update the timestamp
-    date +%s > "$IDLE_FILE"
-else
-    # No one connected - check how long it's been
-    if [ ! -f "$IDLE_FILE" ]; then
-        date +%s > "$IDLE_FILE"
-        exit 0
-    fi
-
-    LAST_ACTIVE=$(cat "$IDLE_FILE")
-    NOW=$(date +%s)
-    IDLE_SECONDS=$((NOW - LAST_ACTIVE))
-
-    # 1800 seconds = 30 minutes
-    if [ "$IDLE_SECONDS" -ge 1800 ]; then
-        sudo shutdown -h now
-    fi
-fi
-EOF
-
-sudo chmod +x /opt/auto-stop.sh
-date +%s | sudo tee /tmp/last-active > /dev/null
-
-# Add to root crontab if not already there
-(sudo crontab -l 2>/dev/null | grep -v "auto-stop" ; echo "*/5 * * * * /opt/auto-stop.sh") | sudo crontab -
-
 echo ""
 echo "============================================"
 echo "  Bootstrap Complete!"
@@ -310,35 +293,19 @@ echo "  - GitHub CLI (gh)"
 echo "  - fail2ban (SSH brute force protection)"
 echo "  - Unattended security upgrades"
 echo "  - AWS CLI"
-echo "  - Tailscale"
 echo "  - Docker"
 echo "  - Node.js LTS (via nvm)"
 echo "  - Python (via pyenv)"
+echo "  - Fonts (JetBrains Mono, Hack, Fira Code)"
+echo "  - Terminal themes (Dracula, Monokai Dark)"
 echo "  - Zsh + Oh My Zsh + Powerlevel10k"
 echo "  - Tmux with sensible defaults"
 echo "  - Login welcome message (instance info, memory, disk)"
-echo "  - Auto-stop after 30 min idle"
 echo ""
 
 # =============================================================================
 # Interactive setup
 # =============================================================================
-
-# -------------------------------------------
-# Tailscale
-# -------------------------------------------
-echo "============================================"
-echo "  Tailscale Setup"
-echo "============================================"
-echo ""
-read -p "Connect to Tailscale now? (y/n): " SETUP_TS
-
-if [ "$SETUP_TS" = "y" ] || [ "$SETUP_TS" = "Y" ]; then
-    sudo tailscale up
-    echo "Tailscale connected."
-else
-    echo "Skipped. Run 'sudo tailscale up' later."
-fi
 
 # -------------------------------------------
 # Timezone
@@ -363,16 +330,6 @@ if [ -n "$TZ_CHOICE" ]; then
 else
     echo "Skipped, staying on UTC."
 fi
-
-# -------------------------------------------
-# Fonts
-# -------------------------------------------
-# JetBrains Mono
-sudo apt install fonts-jetbrains-mono
-# Hack
-sudo apt install fonts-hack
-# Fira Code
-sudo apt install fonts-firacode
 
 # -------------------------------------------
 # AWS CLI config
@@ -443,7 +400,7 @@ if [ "$SETUP_REPOS" = "y" ] || [ "$SETUP_REPOS" = "Y" ]; then
         "markcrosen/ibkr-trader"
     )
 
-    cd "$HOME"
+    cd "$CURRENT_HOME"
     for REPO in "${REPOS[@]}"; do
         REPO_NAME=$(basename "$REPO")
         if [ -d "$REPO_NAME" ]; then
@@ -464,4 +421,8 @@ echo ""
 echo "============================================"
 echo "  All done! Disconnect and reconnect"
 echo "  to start zsh + Powerlevel10k wizard."
+echo ""
+echo "  To change terminal theme:"
+echo "  Right-click terminal -> Preferences"
+echo "  -> pick Dracula or Monokai Dark profile"
 echo "============================================"
