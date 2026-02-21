@@ -365,6 +365,16 @@ else
 fi
 
 # -------------------------------------------
+# Fonts
+# -------------------------------------------
+# JetBrains Mono
+sudo apt install fonts-jetbrains-mono
+# Hack
+sudo apt install fonts-hack
+# Fira Code
+sudo apt install fonts-firacode
+
+# -------------------------------------------
 # AWS CLI config
 # -------------------------------------------
 echo ""
