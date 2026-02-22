@@ -125,19 +125,16 @@ if [ ! -d "$CURRENT_HOME/.pyenv" ]; then
         libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
         libsqlite3-dev libncursesw5-dev xz-utils tk-dev \
         libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-
     curl https://pyenv.run | bash
-
     # Add pyenv to current session
     export PYENV_ROOT="$CURRENT_HOME/.pyenv"
     export PATH="$PYENV_ROOT/bin:$PATH"
     eval "$(pyenv init -)"
-
-    # Install latest Python 3
-    LATEST_PY=$(pyenv install --list | grep -E "^\s+3\.[0-9]+\.[0-9]+$" | tail -1 | tr -d ' ')
-    pyenv install "$LATEST_PY"
-    pyenv global "$LATEST_PY"
-    echo "Python $LATEST_PY installed via pyenv."
+    # Install Python 3.12.12
+    PYTHON_VERSION="3.12.12"
+    pyenv install "$PYTHON_VERSION"
+    pyenv global "$PYTHON_VERSION"
+    echo "Python $PYTHON_VERSION installed via pyenv."
 else
     echo "pyenv already installed, skipping."
 fi
