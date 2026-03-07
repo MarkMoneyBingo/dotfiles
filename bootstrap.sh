@@ -11,6 +11,9 @@
 
 set -e
 
+# Suppress all apt/dpkg interactive prompts (required when piped via curl)
+export DEBIAN_FRONTEND=noninteractive
+
 # Detect current user (works even when piped via curl)
 CURRENT_USER="${SUDO_USER:-$(whoami)}"
 CURRENT_HOME=$(eval echo "~$CURRENT_USER")
