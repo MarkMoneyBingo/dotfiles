@@ -4,9 +4,15 @@
 # Run on a fresh Ubuntu instance to set up everything from scratch.
 #
 # Usage:
-#   curl -sL https://raw.githubusercontent.com/YOUR_REPO/bootstrap.sh | bash
-#   OR
-#   scp bootstrap.sh user@your-host:~ && ssh user@your-host "bash bootstrap.sh"
+#   bash <(curl -sL https://raw.githubusercontent.com/MarkMoneyBingo/dotfiles/main/bootstrap.sh)
+#
+#   NOTE: Do NOT use "curl ... | bash" - that pipes curl into bash's stdin,
+#   breaking interactive prompts (they hang with no keyboard input).
+#   bash <() keeps your terminal as stdin so everything works correctly.
+#
+#   OR download first and run:
+#   curl -sL https://raw.githubusercontent.com/MarkMoneyBingo/dotfiles/main/bootstrap.sh -o bootstrap.sh
+#   bash bootstrap.sh
 # =============================================================================
 
 set -e
