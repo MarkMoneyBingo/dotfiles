@@ -74,7 +74,8 @@ sudo systemctl start fail2ban
 # -------------------------------------------
 echo "[5/20] Setting up unattended security upgrades..."
 sudo apt install -y unattended-upgrades
-sudo dpkg-reconfigure -plow unattended-upgrades
+echo unattended-upgrades unattended-upgrades/enable_auto_updates boolean true | sudo debconf-set-selections
+sudo dpkg-reconfigure -f noninteractive unattended-upgrades
 
 # -------------------------------------------
 # 6. AWS CLI
