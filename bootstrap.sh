@@ -156,24 +156,47 @@ echo "[10/20] Installing developer fonts..."
 sudo apt install -y fonts-jetbrains-mono fonts-hack fonts-firacode
 
 # -------------------------------------------
-# 11. Terminal color themes (Dracula + Monokai)
+# 11. Terminal color themes (Dracula + Monokai Dark)
 # -------------------------------------------
 echo "[11/20] Installing terminal color themes..."
-GOGH_DIR="$CURRENT_HOME/src/gogh"
-if [ ! -d "$GOGH_DIR" ]; then
-    mkdir -p "$CURRENT_HOME/src"
-    git clone https://github.com/Gogh-Co/Gogh.git "$GOGH_DIR"
-fi
 
-# Install Dracula and Monokai Dark non-interactively
-export TERMINAL=gnome-terminal
-cd "$GOGH_DIR/installs"
-./dracula.sh
-./monokai-dark.sh
-cd "$CURRENT_HOME"
+install_gnome_terminal_theme() {
+    local NAME="$1" BG="$2" FG="$3" PALETTE="$4" BOLD="$5" CURSOR_BG="$6" CURSOR_FG="$7"
+    local ID
+    ID=$(uuidgen)
+    local P="/org/gnome/terminal/legacy/profiles:/:${ID}"
+    dconf write "${P}/visible-name"               "'${NAME}'"
+    dconf write "${P}/background-color"           "'${BG}'"
+    dconf write "${P}/foreground-color"           "'${FG}'"
+    dconf write "${P}/bold-color"                 "'${BOLD}'"
+    dconf write "${P}/bold-color-same-as-fg"      "false"
+    dconf write "${P}/palette"                    "${PALETTE}"
+    dconf write "${P}/cursor-colors-set"          "true"
+    dconf write "${P}/cursor-background-color"    "'${CURSOR_BG}'"
+    dconf write "${P}/cursor-foreground-color"    "'${CURSOR_FG}'"
+    dconf write "${P}/use-theme-colors"           "false"
+    dconf write "${P}/use-transparent-background" "false"
+    local LIST
+    LIST=$(dconf read /org/gnome/terminal/legacy/profiles:/list 2>/dev/null || echo "")
+    if [ -z "$LIST" ] || [ "$LIST" = "@as []" ]; then
+        dconf write /org/gnome/terminal/legacy/profiles:/list "['${ID}']"
+    else
+        dconf write /org/gnome/terminal/legacy/profiles:/list "$(echo "$LIST" | sed "s/]/, '${ID}']/")";
+    fi
+    echo "  Installed: ${NAME}"
+}
 
-echo "Dracula and Monokai Dark themes installed."
-echo "To switch: right-click terminal -> Preferences -> pick a profile."
+install_gnome_terminal_theme \
+    "Dracula" "#282A36" "#F8F8F2" \
+    "['#262626','#E356A7','#42E66C','#E4F34A','#9B6BDF','#E64747','#75D7EC','#EFA554','#7A7A7A','#FF79C6','#50FA7B','#F1FA8C','#BD93F9','#FF5555','#8BE9FD','#FFFFFF']" \
+    "#6E46A4" "#BBBBBB" "#282A36"
+
+install_gnome_terminal_theme \
+    "Monokai Dark" "#272822" "#F8F8F2" \
+    "['#272822','#F92672','#A6E22E','#F4BF75','#66D9EF','#AE81FF','#A1EFE4','#F8F8F2','#75715E','#F92672','#A6E22E','#F4BF75','#66D9EF','#AE81FF','#A1EFE4','#F9F8F5']" \
+    "#AE81FF" "#F8F8F0" "#272822"
+
+echo "Terminal themes installed. Right-click terminal -> Preferences to switch."
 
 # -------------------------------------------
 # 12. Zsh + Oh My Zsh + Powerlevel10k
@@ -539,7 +562,6 @@ fi
 
 echo ""
 echo "============================================"
-echo "  All done! Disconnect and reconnect"
 echo "  to start zsh + Powerlevel10k wizard."
 echo ""
 echo "  To change terminal theme:"
