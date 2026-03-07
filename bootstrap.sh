@@ -141,7 +141,7 @@ if [ ! -d "$CURRENT_HOME/.pyenv" ]; then
     export PATH="$PYENV_ROOT/bin:$PATH"
     eval "$(pyenv init -)"
     # Install Python 3.12.12
-    PYTHON_VERSION="3.12.12"
+    PYTHON_VERSION="3.13.2"
     pyenv install "$PYTHON_VERSION"
     pyenv global "$PYTHON_VERSION"
     echo "Python $PYTHON_VERSION installed via pyenv."
