@@ -24,13 +24,13 @@ echo "============================================"
 # -------------------------------------------
 # 1. System updates
 # -------------------------------------------
-echo "[1/14] Updating system packages..."
+echo "[1/20] Updating system packages..."
 sudo apt update && sudo apt upgrade -y
 
 # -------------------------------------------
 # 2. Essential packages
 # -------------------------------------------
-echo "[2/14] Installing essential packages..."
+echo "[2/20] Installing essential packages..."
 sudo apt install -y \
     git \
     curl \
@@ -50,7 +50,7 @@ sudo apt install -y \
 # -------------------------------------------
 # 3. GitHub CLI (gh)
 # -------------------------------------------
-echo "[3/14] Installing GitHub CLI..."
+echo "[3/20] Installing GitHub CLI..."
 if ! command -v gh &> /dev/null; then
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
@@ -64,7 +64,7 @@ fi
 # -------------------------------------------
 # 4. Security - fail2ban
 # -------------------------------------------
-echo "[4/14] Installing fail2ban..."
+echo "[4/20] Installing fail2ban..."
 sudo apt install -y fail2ban
 sudo systemctl enable fail2ban
 sudo systemctl start fail2ban
@@ -72,14 +72,14 @@ sudo systemctl start fail2ban
 # -------------------------------------------
 # 5. Security - unattended upgrades
 # -------------------------------------------
-echo "[5/14] Setting up unattended security upgrades..."
+echo "[5/20] Setting up unattended security upgrades..."
 sudo apt install -y unattended-upgrades
 sudo dpkg-reconfigure -plow unattended-upgrades
 
 # -------------------------------------------
 # 6. AWS CLI
 # -------------------------------------------
-echo "[6/14] Installing AWS CLI..."
+echo "[6/20] Installing AWS CLI..."
 if ! command -v aws &> /dev/null; then
     curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
     unzip -q /tmp/awscliv2.zip -d /tmp
@@ -93,7 +93,7 @@ fi
 # -------------------------------------------
 # 7. Docker
 # -------------------------------------------
-echo "[7/14] Installing Docker..."
+echo "[7/20] Installing Docker..."
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com | sudo sh
     sudo usermod -aG docker "$CURRENT_USER"
@@ -105,7 +105,7 @@ fi
 # -------------------------------------------
 # 8. Node.js via nvm
 # -------------------------------------------
-echo "[8/14] Installing Node.js via nvm..."
+echo "[8/20] Installing Node.js via nvm..."
 if [ ! -d "$CURRENT_HOME/.nvm" ]; then
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
     export NVM_DIR="$CURRENT_HOME/.nvm"
@@ -119,7 +119,7 @@ fi
 # -------------------------------------------
 # 9. Python - pyenv
 # -------------------------------------------
-echo "[9/14] Installing pyenv..."
+echo "[9/20] Installing pyenv..."
 if [ ! -d "$CURRENT_HOME/.pyenv" ]; then
     sudo apt install -y \
         libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
@@ -142,13 +142,13 @@ fi
 # -------------------------------------------
 # 10. Fonts
 # -------------------------------------------
-echo "[10/14] Installing developer fonts..."
+echo "[10/20] Installing developer fonts..."
 sudo apt install -y fonts-jetbrains-mono fonts-hack fonts-firacode
 
 # -------------------------------------------
 # 11. Terminal color themes (Dracula + Monokai)
 # -------------------------------------------
-echo "[11/14] Installing terminal color themes..."
+echo "[11/20] Installing terminal color themes..."
 GOGH_DIR="$CURRENT_HOME/src/gogh"
 if [ ! -d "$GOGH_DIR" ]; then
     mkdir -p "$CURRENT_HOME/src"
@@ -168,7 +168,7 @@ echo "To switch: right-click terminal -> Preferences -> pick a profile."
 # -------------------------------------------
 # 12. Zsh + Oh My Zsh + Powerlevel10k
 # -------------------------------------------
-echo "[12/14] Installing zsh and oh-my-zsh..."
+echo "[12/20] Installing zsh and oh-my-zsh..."
 sudo apt install -y zsh
 
 if [ ! -d "$CURRENT_HOME/.oh-my-zsh" ]; then
@@ -217,7 +217,7 @@ sudo chsh -s "$(which zsh)" "$CURRENT_USER"
 # -------------------------------------------
 # 13. Tmux config
 # -------------------------------------------
-echo "[13/14] Setting up tmux config..."
+echo "[13/20] Setting up tmux config..."
 cat > ~/.tmux.conf << 'EOF'
 # Better prefix key (Ctrl+a instead of Ctrl+b)
 unbind C-b
@@ -259,9 +259,116 @@ EOF
 echo "Tmux configured."
 
 # -------------------------------------------
-# 14. Login welcome message
+# 14. Firefox & Chromium
 # -------------------------------------------
-echo "[14/14] Setting up login welcome message..."
+echo "[14/20] Installing Firefox and Chromium..."
+sudo apt install -y firefox chromium-browser
+echo "Firefox and Chromium installed."
+
+# -------------------------------------------
+# 15. CopyQ clipboard manager
+# -------------------------------------------
+echo "[15/20] Installing CopyQ..."
+sudo apt install -y copyq
+echo "CopyQ installed."
+
+# -------------------------------------------
+# 16. GNOME Extension Manager
+# -------------------------------------------
+echo "[16/20] Installing GNOME Extension Manager..."
+sudo apt install -y gnome-shell-extension-manager
+echo "GNOME Extension Manager installed."
+
+# -------------------------------------------
+# 17. GNOME Extensions (Dash to Panel, Desaturated Tray Icons, Lilypad)
+# -------------------------------------------
+echo "[17/20] Installing GNOME extensions..."
+
+# Install gnome-extensions CLI helper deps
+sudo apt install -y curl gnome-shell-extensions
+
+# Helper function to install extension by ID
+install_gnome_extension() {
+    local EXT_ID="$1"
+    local EXT_NAME="$2"
+    local SHELL_VERSION
+    SHELL_VERSION=$(gnome-shell --version 2>/dev/null | awk '{print $3}' | cut -d. -f1)
+
+    echo "  Installing $EXT_NAME (ID: $EXT_ID)..."
+
+    local INFO_URL="https://extensions.gnome.org/extension-info/?pk=${EXT_ID}&shell_version=${SHELL_VERSION}"
+    local DOWNLOAD_URL
+    DOWNLOAD_URL=$(curl -s "$INFO_URL" | python3 -c "import sys,json; d=json.load(sys.stdin); print('https://extensions.gnome.org' + list(d['shell_version_map'].values())[-1]['pk'])" 2>/dev/null || true)
+
+    if [ -z "$DOWNLOAD_URL" ]; then
+        # Fallback: try without shell version filter
+        DOWNLOAD_URL=$(curl -s "https://extensions.gnome.org/extension-info/?pk=${EXT_ID}" | python3 -c "import sys,json; d=json.load(sys.stdin); print('https://extensions.gnome.org' + list(d['shell_version_map'].values())[-1]['pk'])" 2>/dev/null || true)
+    fi
+
+    if [ -z "$DOWNLOAD_URL" ]; then
+        echo "  WARNING: Could not auto-install $EXT_NAME. Install it manually from https://extensions.gnome.org/extension/${EXT_ID}/"
+        return
+    fi
+
+    local UUID
+    UUID=$(curl -s "https://extensions.gnome.org/extension-info/?pk=${EXT_ID}" | python3 -c "import sys,json; print(json.load(sys.stdin)['uuid'])" 2>/dev/null || true)
+
+    local TMP_ZIP="/tmp/gnome-ext-${EXT_ID}.zip"
+    curl -sL "$DOWNLOAD_URL" -o "$TMP_ZIP"
+
+    local EXT_DIR="$CURRENT_HOME/.local/share/gnome-shell/extensions/${UUID}"
+    mkdir -p "$EXT_DIR"
+    unzip -q -o "$TMP_ZIP" -d "$EXT_DIR"
+    rm -f "$TMP_ZIP"
+
+    gnome-extensions enable "$UUID" 2>/dev/null || true
+    echo "  $EXT_NAME installed (UUID: $UUID). Enable via GNOME Extension Manager if needed."
+}
+
+# Dash to Panel - ID 1160
+install_gnome_extension 1160 "Dash to Panel"
+
+# Desaturated Tray Icons - ID 5580
+install_gnome_extension 5580 "Desaturated Tray Icons"
+
+# Lilypad - ID 6682
+install_gnome_extension 6682 "Lilypad"
+
+echo "GNOME extensions step complete."
+
+# -------------------------------------------
+# 18. Claude Desktop
+# -------------------------------------------
+echo "[18/20] Installing Claude Desktop..."
+curl -fsSL https://aaddrick.github.io/claude-desktop-debian/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/claude-desktop.gpg
+echo "deb [signed-by=/usr/share/keyrings/claude-desktop.gpg arch=amd64,arm64] https://aaddrick.github.io/claude-desktop-debian stable main" | sudo tee /etc/apt/sources.list.d/claude-desktop.list
+sudo apt update
+sudo apt install -y claude-desktop
+echo "Claude Desktop installed."
+
+# -------------------------------------------
+# 19. RustDesk
+# -------------------------------------------
+echo "[19/20] Installing RustDesk..."
+RUSTDESK_URL=$(curl -s https://api.github.com/repos/rustdesk/rustdesk/releases/latest \
+    | grep "browser_download_url" \
+    | grep "x86_64.deb" \
+    | head -1 \
+    | cut -d '"' -f 4)
+
+if [ -n "$RUSTDESK_URL" ]; then
+    curl -sL "$RUSTDESK_URL" -o /tmp/rustdesk.deb
+    sudo apt install -fy /tmp/rustdesk.deb
+    rm -f /tmp/rustdesk.deb
+    echo "RustDesk installed."
+else
+    echo "WARNING: Could not determine latest RustDesk release. Install manually from https://rustdesk.com"
+fi
+
+# -------------------------------------------
+# 20. Login welcome message
+# -------------------------------------------
+echo "[20/20] Setting up login welcome message..."
 sudo tee /etc/update-motd.d/99-instance-info > /dev/null << 'MOTDEOF'
 #!/bin/bash
 echo ""
@@ -297,6 +404,12 @@ echo "  - Fonts (JetBrains Mono, Hack, Fira Code)"
 echo "  - Terminal themes (Dracula, Monokai Dark)"
 echo "  - Zsh + Oh My Zsh + Powerlevel10k"
 echo "  - Tmux with sensible defaults"
+echo "  - Firefox + Chromium"
+echo "  - CopyQ clipboard manager"
+echo "  - GNOME Extension Manager"
+echo "  - GNOME Extensions (Dash to Panel, Desaturated Tray Icons, Lilypad)"
+echo "  - Claude Desktop"
+echo "  - RustDesk (remote desktop)"
 echo "  - Login welcome message (instance info, memory, disk)"
 echo ""
 
